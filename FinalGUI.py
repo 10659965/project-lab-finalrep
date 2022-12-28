@@ -64,7 +64,43 @@ for i in range(0, l):
 steps = str(count /2)
 '''
 #print("number of peaks:", count)
-#print("number of steps:", steps)   
+#print("number of steps:", steps)
+
+#classe Datastructure
+class DataStructure:
+    def __init__(self,X,Y,Z,acc):
+        self.X=X
+        self.Y=Y
+        self.Z=Z
+        self.acc=acc
+        self.minX=[]
+        self.minY=[]
+        self.minZ=[]
+        self.maxX=[]
+        self.maxY=[]
+        self.maxZ=[]
+        self.varX=[]
+        self.varY=[]
+        self.varZ=[]
+        self.minAcc=[]
+        self.maxAcc=[]
+        self.varAcc=[]
+    
+    def CreateData(self):
+        self.minX.append(min(self.X))
+        self.minY.append(min(self.Y))
+        self.minZ.append(min(self.Z))
+        self.maxX.append(max(self.X))
+        self.maxY.append(max(self.Y))
+        self.maxZ.append(max(self.Z))
+        self.varX.append(np.var(self.X))
+        self.varY.append(np.var(self.Y))
+        self.varZ.append(np.var(self.Z))
+        self.minAcc.append(min(self.acc))
+        self.maxAcc.append(max(self.acc))
+        self.varAcc.append(np.var(self.cc))
+
+
 
 #classe lista
 class List_Acquisitions(QWidget):
@@ -97,9 +133,26 @@ class MainW(QMainWindow):
         self.Y=[]
         self.Z=[]
         self.time=[]
+        self.provatimer=0
         self.portname=''
         self.totalsignal=[]
-        
+        self.passi=None
+
+        #variable for data analysis
+        '''
+        self.minX=None
+        self.minY=None
+        self.minZ=None
+        self.maxX=None
+        self.maxY=None
+        self.maxZ=None
+        self.varX=None
+        self.varY=None
+        self.varZ=None
+        self.minAcc=None
+        self.maxAcc=None
+        self.varAcc=None
+        '''
         #self.FlagFirstAbort=0
         
         
@@ -152,7 +205,7 @@ class MainW(QMainWindow):
         self.startAcq.setDisabled(True)
         self.stopAcq=QPushButton("Stop Acquisition")
         self.stopAcq.setDisabled(True)
-        self.ShowData=QPushButton("ShowData")
+        self.ShowData=QPushButton("SaveData")
         self.ShowData.setDisabled(True)
         
         #define list
@@ -189,6 +242,7 @@ class MainW(QMainWindow):
         
     
     def StartAcquisition(self):
+            self.ResetXYZ()
 
             self.graphWidget.clear()
             self.Dati=DatiSerial(str(self.portname),'Ready')
@@ -206,7 +260,10 @@ class MainW(QMainWindow):
             self.startAcq.setDisabled(True)
             self.label_steps.setText(str('0'))
             
-
+    def ResetXYZ(self):
+        self.X=[]
+        self.Y=[]
+        self.Z=[]
     
     def AbortAcquisition(self):
         
@@ -215,7 +272,8 @@ class MainW(QMainWindow):
         
         #print(self.Dati.PortName)
         print("iskilled:"+str(self.Dati.is_killed))
-        self.startAcq.setDisabled(False)
+        if not self.Dati.serialPort.is_open:
+            self.startAcq.setDisabled(False)
         self.resetTimer()
         #self.FlagFirstAbort=1
         
@@ -258,6 +316,7 @@ class MainW(QMainWindow):
         
         self.graphWidget.plot(l,acc)
         steps=self.ThresholdCount(acc,l)
+        self.passi=steps
         self.label_steps.setText(steps)
 
 
@@ -273,19 +332,66 @@ class MainW(QMainWindow):
     #SHOW DATAS
     def ShowVectData(self):
 
+        #function to create data stracture#
+        self.CreateData(self.X,self.Y,self.Z,self.totalsignal)
+
+
+
         ####excel####
-        self.ExcelSave(self.X,self.Y,self.Z,self.totalsignal)
+        self.ExcelSave(self.minX,
+        self.minY,
+        self.minZ,
+        self.maxX,
+        self.maxY,
+        self.maxZ,
+        self.varX,
+        self.varY,
+        self.varZ,
+        self.minAcc,
+        self.maxAcc,
+        self.varAcc,
+        self.provatimer,
+        self.passi)
         
-        print(self.X)
-        print(len(self.X))
+        
     
     #EXCEL FUNCTION 
-    def ExcelSave(self,X,Y,Z,acc):
-        d={'X':X,'Y':Y,'Z':Z,'total signal':acc}
-        df=pd.DataFrame(data=d)
+    def ExcelSave(self,minX,minY,minZ,maxX,maxY,maxZ,minAcc,maxAcc,varAcc,tempo,passi):
+        data={ 'minX':minX,
+            'minY':minY,
+            'minZ':minZ,
+            'maxX':maxX,
+            'maxY':maxY,
+            'maxZ':maxZ,
+            'minAcc':minAcc,
+            'maxAcc':maxAcc,
+            'varAcc':varAcc,
+            'tempo':tempo,
+            'passi':passi}
+        
+
+        df=pd.DataFrame(data=data)
         
         df.to_excel("ouput_{}.xlsx".format(self.n_ex))
         self.n_ex+=1
+
+    #function to create structure data#
+    def CreateData(self,X,Y,Z,acc):
+        self.minX=min(X)
+        self.minY=min(Y)
+        self.minZ=min(Z)
+        self.maxX=max(X)
+        self.maxY=max(Y)
+        self.maxZ=max(Z)
+        self.varX=np.var(X)
+        self.varY=np.var(Y)
+        self.varZ=np.var(Z)
+        self.minAcc=min(acc)
+        self.maxAcc=max(acc)
+        self.varAcc=np.var(acc)
+
+
+
 
 
 
@@ -318,6 +424,7 @@ class MainW(QMainWindow):
         #self.start_btn.setDisabled(True)
 
     def resetTimer(self):
+        self.provatimer=self.count
         self.count = 0
         #text_timer = str(self.count) + ' s'
         #self.timelabel.setText(text_timer)
