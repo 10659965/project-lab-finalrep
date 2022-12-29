@@ -32,7 +32,8 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QGridLayout,
     QTabWidget,
-    QListWidget
+    QListWidget,
+    QStyle
     
 )
 
@@ -124,6 +125,34 @@ class List_Acquisitions(QWidget):
         item = self.listwidget.currentItem()
         print(item.text())
 
+class SaveDialog(QDialog):
+    def __init__(self,text):
+        self.maintext=str(text)
+        self.MainTextlabel=QLabel(self.maintext)
+        self.si=QPushButton("Yes")
+        self.no=QPushButton("No")
+        #self.flag=False
+        self.i_icon=QStyle.standardIcon.SP_FileDialogInfoView
+
+        
+        hlayout=QHBoxLayout()
+        hlayout.addItem(self.i_icon)
+        hlayout.addWidget(self.si)
+        hlayout.addWidget(self.no)
+
+
+        vlayout=QVBoxLayout()
+        vlayout.addWidget(self.MainTextlabel)
+        vlayout.addWidget(hlayout)
+
+        self.setLayout(vlayout)
+        self.setWindowTitle("SaveData")
+
+        if self.si.pressed:
+            return True
+        if self.no.pressed:
+            return False
+
 
 class MainW(QMainWindow):
     def __init__(self):
@@ -139,7 +168,8 @@ class MainW(QMainWindow):
         self.passi=None
 
         #variable for data analysis
-        '''
+        self.DataStrc=DataStructure(self.X,self.Y,self.Z,self.totalsignal)
+        
         self.minX=None
         self.minY=None
         self.minZ=None
@@ -152,7 +182,7 @@ class MainW(QMainWindow):
         self.minAcc=None
         self.maxAcc=None
         self.varAcc=None
-        '''
+      
         #self.FlagFirstAbort=0
         
         
@@ -266,7 +296,13 @@ class MainW(QMainWindow):
         self.Z=[]
     
     def AbortAcquisition(self):
-        
+        self.DataStrc=DataStructure(self.X,self.Y,self.Z,self.totalsignal)
+        self.saveDialog=SaveDialog('Do you want to save the acquisition?')
+        self.saveDialog.exec_()
+        if self.saveDialog:
+            self.DataStrc.CreateData()
+
+                
         self.Dati.Abort()
         #self.Dati.is_killed=True
         
@@ -524,6 +560,10 @@ class MainW(QMainWindow):
         '''
 
         self.setCentralWidget(WindowWid)
+
+
+
+
 
 if __name__ == '__main__':
     # You need one (and only one) QApplication instance per application.
