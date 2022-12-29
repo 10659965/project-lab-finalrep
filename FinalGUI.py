@@ -408,7 +408,7 @@ class MainW(QMainWindow):
 
         df=pd.DataFrame(data=data)
         
-        df.to_excel("ouput_{}.xlsx".format(self.n_ex))
+        df.to_excel("Acquisition_{}.xlsx".format(self.n_ex))
         self.n_ex+=1
 
     #function to create structure data#
