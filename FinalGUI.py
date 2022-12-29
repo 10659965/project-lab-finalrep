@@ -69,11 +69,13 @@ steps = str(count /2)
 
 #classe Datastructure
 class DataStructure:
-    def __init__(self,X,Y,Z,acc):
+    def __init__(self,X,Y,Z,acc,time,passi):
         self.X=X
         self.Y=Y
         self.Z=Z
         self.acc=acc
+        self.temp_time=time
+        self.temp_steps=passi
         self.minX=[]
         self.minY=[]
         self.minZ=[]
@@ -86,6 +88,8 @@ class DataStructure:
         self.minAcc=[]
         self.maxAcc=[]
         self.varAcc=[]
+        self.timesave=[]
+        self.stepsave=[]
     
     def CreateData(self):
         self.minX.append(min(self.X))
@@ -168,8 +172,10 @@ class MainW(QMainWindow):
         self.passi=None
 
         #variable for data analysis
-        self.DataStrc=DataStructure(self.X,self.Y,self.Z,self.totalsignal)
+        self.DataStrc=DataStructure(self.X,self.Y,self.Z,self.totalsignal,self.provatimer,self.passi)
         
+        #self parameters
+        '''
         self.minX=None
         self.minY=None
         self.minZ=None
@@ -182,6 +188,7 @@ class MainW(QMainWindow):
         self.minAcc=None
         self.maxAcc=None
         self.varAcc=None
+        '''
       
         #self.FlagFirstAbort=0
         
@@ -296,7 +303,7 @@ class MainW(QMainWindow):
         self.Z=[]
     
     def AbortAcquisition(self):
-        self.DataStrc=DataStructure(self.X,self.Y,self.Z,self.totalsignal)
+        self.DataStrc=DataStructure(self.X,self.Y,self.Z,self.totalsignal,self.provatimer,self.passi)
         self.saveDialog=SaveDialog('Do you want to save the acquisition?')
         self.saveDialog.exec_()
         if self.saveDialog:
@@ -369,11 +376,15 @@ class MainW(QMainWindow):
     def ShowVectData(self):
 
         #function to create data stracture#
-        self.CreateData(self.X,self.Y,self.Z,self.totalsignal)
+        #self.CreateData(self.X,self.Y,self.Z,self.totalsignal)
+        
 
 
 
         ####excel####
+
+        self.ExcelSave(self.DataStrc)
+        ''' pass inside the function self parameters
         self.ExcelSave(self.minX,
         self.minY,
         self.minZ,
@@ -388,11 +399,16 @@ class MainW(QMainWindow):
         self.varAcc,
         self.provatimer,
         self.passi)
+        '''
+
         
         
     
     #EXCEL FUNCTION 
-    def ExcelSave(self,minX,minY,minZ,maxX,maxY,maxZ,minAcc,maxAcc,varAcc,tempo,passi):
+    def ExcelSave(self,data):
+        
+        #data dictionary for self parameter
+        '''
         data={ 'minX':minX,
             'minY':minY,
             'minZ':minZ,
@@ -402,6 +418,22 @@ class MainW(QMainWindow):
             'minAcc':minAcc,
             'maxAcc':maxAcc,
             'varAcc':varAcc,
+            'tempo':tempo,
+            'passi':passi}
+        '''
+
+        data={ 'minX':data.minX,
+            'minY':data.minY,
+            'minZ':data.minZ,
+            'maxX':data.maxX,
+            'maxY':data.maxY,
+            'maxZ':data.maxZ,
+            'varX':data.varX,
+            'varY':data.varY,
+            'varZ':data.varZ,
+            'minAcc':data.minAcc,
+            'maxAcc':data.maxAcc,
+            'varAcc':data.varAcc,
             'tempo':tempo,
             'passi':passi}
         

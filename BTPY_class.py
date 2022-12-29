@@ -153,6 +153,8 @@ class ErrorW(QDialog):
         self.err_text=str(errorText)
         
         
+        
+        
         self.win_text=str(windowTitle)
         self.Text=QLabel(self.err_text.upper())
         
