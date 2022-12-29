@@ -434,8 +434,8 @@ class MainW(QMainWindow):
             'minAcc':data.minAcc,
             'maxAcc':data.maxAcc,
             'varAcc':data.varAcc,
-            'tempo':tempo,
-            'passi':passi}
+            'tempo':data.timesave,
+            'passi':data.stepsave}
         
 
         df=pd.DataFrame(data=data)
