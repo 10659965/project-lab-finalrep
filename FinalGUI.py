@@ -69,13 +69,15 @@ steps = str(count /2)
 
 #classe Datastructure
 class DataStructure:
-    def __init__(self,X,Y,Z,acc,time,passi):
+    def __init__(self):
+        '''
         self.X=X
         self.Y=Y
         self.Z=Z
         self.acc=acc
         self.temp_time=time
         self.temp_steps=passi
+        '''
         self.minX=[]
         self.minY=[]
         self.minZ=[]
@@ -91,20 +93,24 @@ class DataStructure:
         self.timesave=[]
         self.stepsave=[]
     
-    def CreateData(self):
-        self.minX.append(min(self.X))
-        self.minY.append(min(self.Y))
-        self.minZ.append(min(self.Z))
-        self.maxX.append(max(self.X))
-        self.maxY.append(max(self.Y))
-        self.maxZ.append(max(self.Z))
-        self.varX.append(np.var(self.X))
-        self.varY.append(np.var(self.Y))
-        self.varZ.append(np.var(self.Z))
-        self.minAcc.append(min(self.acc))
-        self.maxAcc.append(max(self.acc))
-        self.varAcc.append(np.var(self.cc))
+    def CreateData(self,X,Y,Z,acc,time,passi):
+        self.minX.append(min(X))
+        self.minY.append(min(Y))
+        self.minZ.append(min(Z))
+        self.maxX.append(max(X))
+        self.maxY.append(max(Y))
+        self.maxZ.append(max(Z))
+        self.varX.append(np.var(X))
+        self.varY.append(np.var(Y))
+        self.varZ.append(np.var(Z))
+        self.minAcc.append(min(acc))
+        self.maxAcc.append(max(acc))
+        self.varAcc.append(np.var(acc))
+        self.timesave.append(time)
+        self.stepsave.append(passi)
 
+class Signals(QObject):
+    signal=pyqtSignal(int)
 
 
 #classe lista
@@ -131,32 +137,52 @@ class List_Acquisitions(QWidget):
 
 class SaveDialog(QDialog):
     def __init__(self,text):
+        super(QDialog,self).__init__()
         self.maintext=str(text)
         self.MainTextlabel=QLabel(self.maintext)
         self.si=QPushButton("Yes")
         self.no=QPushButton("No")
-        #self.flag=False
-        self.i_icon=QStyle.standardIcon.SP_FileDialogInfoView
+        self.flag=False
+        self.segnale=Signals()
+        #self.i_icon=QStyle.standardIcon.SP_FileDialogInfoView
 
         
         hlayout=QHBoxLayout()
-        hlayout.addItem(self.i_icon)
+        #hlayout.addItem(self.i_icon)
         hlayout.addWidget(self.si)
         hlayout.addWidget(self.no)
 
 
         vlayout=QVBoxLayout()
         vlayout.addWidget(self.MainTextlabel)
-        vlayout.addWidget(hlayout)
+        vlayout.addLayout(hlayout)
 
         self.setLayout(vlayout)
         self.setWindowTitle("SaveData")
+        self.si.pressed.connect(self.PressedSi)
+        self.no.pressed.connect(self.PressedNo)
 
-        if self.si.pressed:
-            return True
-        if self.no.pressed:
-            return False
+    def PressedSi(self):
+        self.flag=True
+        print(self.flag)
+        self.segnale.signal.emit(0)
+        self.si.setDisabled(True)
+        self.no.setDisabled(True)
+        self.MainTextlabel.setText("Acquisition saved, close this window")
+            
 
+    def PressedNo(self):
+        self.flag=False
+        print(self.flag)
+        self.segnale.signal.emit(0)
+        self.si.setDisabled(True)
+        self.no.setDisabled(True)
+        self.MainTextlabel.setText("Acquisition not saved, close this window")
+        
+
+
+
+        
 
 class MainW(QMainWindow):
     def __init__(self):
@@ -170,27 +196,13 @@ class MainW(QMainWindow):
         self.portname=''
         self.totalsignal=[]
         self.passi=None
+        self.CreateDataFlag=None
+        
 
         #variable for data analysis
-        self.DataStrc=DataStructure(self.X,self.Y,self.Z,self.totalsignal,self.provatimer,self.passi)
+        self.DataSession=DataStructure()
         
-        #self parameters
-        '''
-        self.minX=None
-        self.minY=None
-        self.minZ=None
-        self.maxX=None
-        self.maxY=None
-        self.maxZ=None
-        self.varX=None
-        self.varY=None
-        self.varZ=None
-        self.minAcc=None
-        self.maxAcc=None
-        self.varAcc=None
-        '''
-      
-        #self.FlagFirstAbort=0
+        
         
         
         #####Graph#####
@@ -244,6 +256,8 @@ class MainW(QMainWindow):
         self.stopAcq.setDisabled(True)
         self.ShowData=QPushButton("SaveData")
         self.ShowData.setDisabled(True)
+        #####button for new session######
+        self.NewSession=QPushButton("New Session")
         
         #define list
         self.lista=List_Acquisitions()
@@ -268,6 +282,7 @@ class MainW(QMainWindow):
         #define signals datastream
         self.Dati.signals.service_string.connect(self.SignalThreadStr)
         self.Dati.signals.dati.connect(self.SignalDati)
+        self.Dati.signals.conn_status.connect(self.CheckStatusConnection)
         
             
         
@@ -301,26 +316,76 @@ class MainW(QMainWindow):
         self.X=[]
         self.Y=[]
         self.Z=[]
+        #print to check
+        print("Reset Data")
     
     def AbortAcquisition(self):
-        self.DataStrc=DataStructure(self.X,self.Y,self.Z,self.totalsignal,self.provatimer,self.passi)
-        self.saveDialog=SaveDialog('Do you want to save the acquisition?')
-        self.saveDialog.exec_()
-        if self.saveDialog:
-            self.DataStrc.CreateData()
+        
+        self.Dati.Abort()
+        
+        self.resetTimer()
+        self.messageSave()
+        #self.DataStrc=DataStructure(self.X,self.Y,self.Z,self.totalsignal,self.provatimer,self.passi)
+        
+       
+        
+        self.startAcq.setDisabled(False)    
 
                 
-        self.Dati.Abort()
+        
         #self.Dati.is_killed=True
         
         #print(self.Dati.PortName)
+        
         print("iskilled:"+str(self.Dati.is_killed))
-        if not self.Dati.serialPort.is_open:
-            self.startAcq.setDisabled(False)
-        self.resetTimer()
+        #self.Dati.signals.bool.connect(self.newacquisition)
+            
+        
         #self.FlagFirstAbort=1
+    
+    def messageSave(self):
+        '''MessgeBox(didn't work)
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        
+        msg.setWindowTitle("ACquisition Save")
+        
+        msg.setText("Do you want to save the acquisition data?")
         
         
+        msg.buttonClicked.connect(self.AppendVectorAcquisition)
+        
+        msg.exec_()
+        #print(self.CreateDataFlag)
+        '''
+        self.dialogsave=SaveDialog("Do you want to save this acquisition?")
+        self.dialogsave.segnale.signal.connect(self.AppendVectorAcquisition)
+        self.dialogsave.exec_()
+        
+    
+
+
+    def AppendVectorAcquisition(self):
+        print("signal save dialog")
+        #print(self.CreateDataFlag)
+
+        if self.dialogsave.flag:
+            self.DataSession.CreateData(self.X,self.Y,self.Z,self.totalsignal,self.provatimer,self.passi)
+            #print to check
+            print(self.DataSession.minX)
+            print(self.DataSession.minY)
+            print(self.DataSession.minZ)
+            print(self.DataSession.maxX)
+            print(self.DataSession.maxY)
+            print(self.DataSession.maxZ)
+        
+        
+
+        
+    def CheckStatusConnection(self,stringa):
+        if "Serial Exception" in stringa:
+            self.startAcq.setDisabled(False)
 
     def SignalThreadStr(self,stringa):
         print(str(stringa))
@@ -383,7 +448,7 @@ class MainW(QMainWindow):
 
         ####excel####
 
-        self.ExcelSave(self.DataStrc)
+        self.ExcelSave(self.DataSession)
         ''' pass inside the function self parameters
         self.ExcelSave(self.minX,
         self.minY,
@@ -443,7 +508,7 @@ class MainW(QMainWindow):
         df.to_excel("Acquisition_{}.xlsx".format(self.n_ex))
         self.n_ex+=1
 
-    #function to create structure data#
+    #function to create structure data(maybe useless)#
     def CreateData(self,X,Y,Z,acc):
         self.minX=min(X)
         self.minY=min(Y)
