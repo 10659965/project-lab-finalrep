@@ -40,6 +40,7 @@ def convert(int):
 
 class DatiSignals(QObject):
 
+    bool=pyqtSignal(bool)
     deviceport=pyqtSignal(str)
     dati=pyqtSignal(list,list,list)
     service_string=pyqtSignal(str)
@@ -71,9 +72,11 @@ class DatiSerial(QRunnable):
     def Abort(self):
         self.is_killed=True
         self.serialPort.write('b'.encode('utf-8'))
-        #self.serialPort.close()
+        self.serialPort.close()
         self.FlagConnection=False
+        #self.signals.bool.emit(True)
         time.sleep(0.01)
+       
 
      
     
@@ -94,13 +97,20 @@ class DatiSerial(QRunnable):
         try:
             #while(1):
                 if self.FlagConnection==False:
-                    self.serialPort = serial.Serial(port = self.PortName, baudrate=115200,bytesize=8, timeout=None, stopbits=serial.STOPBITS_ONE)
+                    try:
+                        self.serialPort = serial.Serial(port = self.PortName, baudrate=115200,bytesize=8, timeout=None, stopbits=serial.STOPBITS_ONE)
+                    except serial.SerialException:
+                        self.signals.conn_status.emit("Serial Exception")
+
                     self.checkStringInit()
                     self.FlagConnection=True
                 
-
+                
                 #self.signals.service_string.emit("connection estabilished")
                 if(self.serialPort.is_open):
+                    if self.is_killed==True:
+                        #self.signals.service_string.emit("killed(?)")
+                        raise WorkerKilled
                         
                     #self.signals.service_string.emit("something in")
                     sData = self.serialPort.read(194)
@@ -129,9 +139,7 @@ class DatiSerial(QRunnable):
                         self.Y.append(vect[i+1])
                         self.Z.append(vect[i+2])
 
-                    if self.is_killed==True:
-                        #self.signals.service_string.emit("killed(?)")
-                        raise WorkerKilled
+                    
 
                     self.acc_vect.append(vect)
                     self.signals.service_string.emit("vector ready")
@@ -147,7 +155,7 @@ class DatiSerial(QRunnable):
                     
                         
 
-                    time.sleep(0.05)
+                    #time.sleep(0.05)
                     self.run()
                     
                         
@@ -157,7 +165,10 @@ class DatiSerial(QRunnable):
         except WorkerKilled:
             self.signals.service_string.emit("killed")
             self.serialPort.close()
-            time.sleep(0.05)
+            #time.sleep(0.05)
+
+        
+
 
     def checkStringInit(self):
         stringInit=str(self.serialPort.read(7))
