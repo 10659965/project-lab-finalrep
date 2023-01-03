@@ -109,6 +109,23 @@ class DataStructure:
         self.timesave.append(time)
         self.stepsave.append(passi)
 
+    def Reset(self):
+        self.minX=[]
+        self.minY=[]
+        self.minZ=[]
+        self.maxX=[]
+        self.maxY=[]
+        self.maxZ=[]
+        self.varX=[]
+        self.varY=[]
+        self.varZ=[]
+        self.minAcc=[]
+        self.maxAcc=[]
+        self.varAcc=[]
+        self.timesave=[]
+        self.stepsave=[]
+        print(self.minX)
+
 class Signals(QObject):
     signal=pyqtSignal(int)
 
@@ -244,7 +261,7 @@ class MainW(QMainWindow):
         
 
         ####excel###
-        self.n_ex=0
+        self.n_ex=5
         
         #title main window
         self.setWindowTitle("MainWindow")
@@ -258,6 +275,7 @@ class MainW(QMainWindow):
         self.ShowData.setDisabled(True)
         #####button for new session######
         self.NewSession=QPushButton("New Session")
+        self.NewSession.setDisabled(True)
         
         #define list
         self.lista=List_Acquisitions()
@@ -278,6 +296,7 @@ class MainW(QMainWindow):
         self.startAcq.pressed.connect(self.StartAcquisition)
         self.stopAcq.pressed.connect(self.AbortAcquisition)
         self.ShowData.pressed.connect(self.ShowVectData)
+        self.NewSession.pressed.connect(self.NewSessionStart)
         
         #define signals datastream
         self.Dati.signals.service_string.connect(self.SignalThreadStr)
@@ -429,12 +448,12 @@ class MainW(QMainWindow):
 
 
     def ThresholdCount(self,a,l):
-        thr = 300 #soglia settata basandomi sul grafico. i picchi inizio passo e fine passo raggiungono 8g.
+        thr = 280 #soglia settata basandomi sul grafico. i picchi inizio passo e fine passo raggiungono 8g.
         count = 0
         for i in l:
             if a[i] >= thr:
                 count += 1
-        steps = str(int(count /4))
+        steps = str(int(count /8))
         return steps
     
     #SHOW DATAS
@@ -465,6 +484,9 @@ class MainW(QMainWindow):
         self.provatimer,
         self.passi)
         '''
+
+    def NewSessionStart(self):
+        self.DataSession.Reset()
 
         
         
@@ -536,6 +558,7 @@ class MainW(QMainWindow):
         self.startAcq.setDisabled(False)
         self.stopAcq.setDisabled(False)
         self.ShowData.setDisabled(False)
+        self.NewSession.setDisabled(False)
 
     ####Timer Functions###
     def stopTimer(self):
@@ -578,6 +601,7 @@ class MainW(QMainWindow):
         AcqButtonlayV=QVBoxLayout()
         AcqButtonlayV.addLayout(AcqButtonlayH)
         AcqButtonlayV.addWidget(self.ShowData)
+        AcqButtonlayV.addWidget(self.NewSession)
 
         #layoulabels steps
         layoutlabel=QHBoxLayout()
