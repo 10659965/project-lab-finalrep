@@ -1,3 +1,8 @@
+#search and create directory for excel import libraries
+import os 
+import glob
+
+
 import serial
 import numpy as np
 import sys
@@ -508,6 +513,24 @@ class MainW(QMainWindow):
             'tempo':tempo,
             'passi':passi}
         '''
+        #control path
+        wd=os.getcwd()
+        print(wd)
+        listexcel=glob.glob(wd+'/*.xlsx')
+        print(listexcel)
+        if not listexcel:
+            try:
+                os.mkdir("Session Excel")
+                dir_Ex=os.chdir(wd+"Session Excel")
+                print(dir_Ex)
+            except FileExistsError:
+                dir_Ex=os.chdir(wd+"Session Excel")
+                print(dir_Ex)
+
+
+        for l in listexcel:
+            self.n_ex=l+1
+        
 
         data={ 'minX':data.minX,
             'minY':data.minY,
@@ -527,7 +550,7 @@ class MainW(QMainWindow):
 
         df=pd.DataFrame(data=data)
         
-        df.to_excel("Acquisition_{}.xlsx".format(self.n_ex))
+        df.to_excel(dir_Ex+"Acquisition_{}.xlsx".format(self.n_ex))
         self.n_ex+=1
 
     #function to create structure data(maybe useless)#
