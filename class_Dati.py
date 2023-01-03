@@ -106,57 +106,60 @@ class DatiSerial(QRunnable):
                     self.FlagConnection=True
                 
                 
-                #self.signals.service_string.emit("connection estabilished")
-                if(self.serialPort.is_open):
-                    if self.is_killed==True:
-                        #self.signals.service_string.emit("killed(?)")
-                        raise WorkerKilled
+                try:    #self.signals.service_string.emit("connection estabilished")
+                    if(self.serialPort.is_open):
+                        if self.is_killed==True:
+                            #self.signals.service_string.emit("killed(?)")
+                            raise WorkerKilled
                         
-                    #self.signals.service_string.emit("something in")
-                    sData = self.serialPort.read(194)
-                    #print(sData)
-                    byte =[]
+                        #self.signals.service_string.emit("something in")
+                        sData = self.serialPort.read(194)
+                        #print(sData)
+                        byte =[]
                         
 
-                    if (sData[0] == header and sData[193] == tail and len(sData) == byte_to_receiv):
-                        #print("new valid set of data")
-                        byte = [sData[i:i + 2] for i in range(1, len(sData) - 2, 2)]
-                        #print(byte)
-                    else:
-                        self.signals.service_string.emit("condition not satisfied")
+                        if (sData[0] == header and sData[193] == tail and len(sData) == byte_to_receiv):
+                            #print("new valid set of data")
+                            byte = [sData[i:i + 2] for i in range(1, len(sData) - 2, 2)]
+                            #print(byte)
+                        else:
+                            self.signals.service_string.emit("condition not satisfied")
 
-                    vect = []
+                        vect = []
 
-                    for value in byte:
-                        sign = value[1] & 0b10000000
-                        a = (value[0] | value[1] << 8) >> 6
-                        if sign:
-                            a = convert(a)
-                        vect.append(a)
+                        for value in byte:
+                            sign = value[1] & 0b10000000
+                            a = (value[0] | value[1] << 8) >> 6
+                            if sign:
+                                a = convert(a)
+                            vect.append(a)
 
-                    for i in range (0,len(vect),3):
-                        self.X.append(vect[i])
-                        self.Y.append(vect[i+1])
-                        self.Z.append(vect[i+2])
+                        for i in range (0,len(vect),3):
+                            self.X.append(vect[i])
+                            self.Y.append(vect[i+1])
+                            self.Z.append(vect[i+2])
 
                     
 
-                    self.acc_vect.append(vect)
-                    self.signals.service_string.emit("vector ready")
-                    self.signals.dati.emit(self.X,self.Y,self.Z)
-                    #self.signals.service_string.emit("terminated")
+                        self.acc_vect.append(vect)
+                        self.signals.service_string.emit("vector ready")
+                        self.signals.dati.emit(self.X,self.Y,self.Z)
+                        #self.signals.service_string.emit("terminated")
                     
-                    # Print the contents of the serial data
-                    #l = len(self.Z)
-                    #print(self.Z[l-3:l])
-                    #print(l)
+                        # Print the contents of the serial data
+                        #l = len(self.Z)
+                        #print(self.Z[l-3:l])
+                        #print(l)
                         
                     
                     
                         
 
-                    #time.sleep(0.05)
-                    self.run()
+                        #time.sleep(0.05)
+                        self.run()
+                except serial.PortNotOpenError:
+                    self.serialPort.close()
+
                     
                         
                         
