@@ -2,6 +2,9 @@
 import os 
 import glob
 
+#library to import data
+import datetime as dt
+
 
 import serial
 import numpy as np
@@ -219,6 +222,9 @@ class MainW(QMainWindow):
         self.totalsignal=[]
         self.passi=None
         self.CreateDataFlag=None
+
+        #acquire date
+        self.today_date=dt.datetime.today()
         
 
         #variable for data analysis
@@ -527,6 +533,7 @@ class MainW(QMainWindow):
                 dir_Ex=os.chdir(wd+"Session Excel")
                 print(dir_Ex)
 
+        
 
         for l in listexcel:
             self.n_ex=l+1
@@ -550,7 +557,7 @@ class MainW(QMainWindow):
 
         df=pd.DataFrame(data=data)
         
-        df.to_excel(dir_Ex+"Acquisition_{}.xlsx".format(self.n_ex))
+        df.to_excel(dir_Ex+"{}_Session_{}.xlsx".format(self.today_date,self.n_ex))
         self.n_ex+=1
 
     #function to create structure data(maybe useless)#
