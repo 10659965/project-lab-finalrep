@@ -224,7 +224,10 @@ class MainW(QMainWindow):
         self.CreateDataFlag=None
 
         #acquire date
-        self.today_date=dt.datetime.today()
+        today_date=dt.date.today()
+        
+        self.date=str(today_date)
+        print(self.date)
         
 
         #variable for data analysis
@@ -272,7 +275,7 @@ class MainW(QMainWindow):
         
 
         ####excel###
-        self.n_ex=5
+        self.n_ex=0
         
         #title main window
         self.setWindowTitle("MainWindow")
@@ -522,21 +525,30 @@ class MainW(QMainWindow):
         #control path
         wd=os.getcwd()
         print(wd)
-        listexcel=glob.glob(wd+'/*.xlsx')
+        listexcel=glob.glob(wd+'*.xlsx')
         print(listexcel)
         if not listexcel:
             try:
                 os.mkdir("Session Excel")
-                dir_Ex=os.chdir(wd+"Session Excel")
-                print(dir_Ex)
+                os.chdir(wd+"/Session Excel")
+                
+                
             except FileExistsError:
-                dir_Ex=os.chdir(wd+"Session Excel")
-                print(dir_Ex)
+                os.chdir(wd+"/Session Excel")
+                
+                listexcel=glob.glob(self.date+'*.xlsx')
+                print(listexcel)
+                
+                 
+                
+                self.n_ex=len(listexcel)
+                
+
+                
 
         
 
-        for l in listexcel:
-            self.n_ex=l+1
+        
         
 
         data={ 'minX':data.minX,
@@ -557,8 +569,10 @@ class MainW(QMainWindow):
 
         df=pd.DataFrame(data=data)
         
-        df.to_excel(dir_Ex+"{}_Session_{}.xlsx".format(self.today_date,self.n_ex))
+        df.to_excel(self.date+"_Session_{}.xlsx".format(self.n_ex),)
         self.n_ex+=1
+        os.chdir(wd)
+
 
     #function to create structure data(maybe useless)#
     def CreateData(self,X,Y,Z,acc):
