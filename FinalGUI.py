@@ -2,6 +2,19 @@
 import os 
 import glob
 
+#libraries to filter data
+from scipy.signal import butter,filtfilt
+
+def butter_lowpass_filter(data, cutoff, fs, order):
+    print("Cutoff freq " + str(cutoff))
+    nyq = 0.5 * fs # Nyquist Frequency
+    normal_cutoff = cutoff / nyq
+    # Get the filter coefficients 
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    y = filtfilt(b, a,data)
+    return y
+
+
 #library to import data
 import datetime as dt
 
@@ -449,14 +462,17 @@ class MainW(QMainWindow):
         ay_sq = np.square(Y)
         az_sq = np.square(Z)
         acc = np.sqrt(ax_sq + ay_sq + az_sq)
+        filtered=butter_lowpass_filter(acc,4,50,3)
         self.totalsignal=acc
 
         l=len(acc)
         length=l-1
         l = np.arange(0, length+1, 1)
+
+        self.graphWidget.clear()
         
-        self.graphWidget.plot(l,acc)
-        steps=self.ThresholdCount(acc,l)
+        self.graphWidget.plot(l,filtered)
+        steps=self.ThresholdCount(filtered,l)
         self.passi=steps
         self.label_steps.setText(steps)
 
@@ -465,8 +481,9 @@ class MainW(QMainWindow):
         thr = 280 #soglia settata basandomi sul grafico. i picchi inizio passo e fine passo raggiungono 8g.
         count = 0
         for i in l:
-            if a[i] >= thr:
-                count += 1
+            if not a[i-1]>=thr:
+                if a[i] >= thr:
+                    count += 1
         steps = str(int(count /8))
         return steps
     
