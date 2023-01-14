@@ -159,19 +159,39 @@ class List_Acquisitions(QWidget):
 
         self.setLayout(layout)
         self.listwidget = QListWidget()
+        self.Qlistexcel=QListWidget()
+        
+        '''
         self.listwidget.insertItem(0, "Excel1_example")
         self.listwidget.insertItem(1, "Excel2_example")
         self.listwidget.insertItem(2, "Excel3_example")
         self.listwidget.insertItem(3, "Excel4_example")
         self.listwidget.insertItem(4, "Excel5_example")
+        '''
         # self.listwidget.setMaximumSize(50, 50)
         # self.listwidget.setMaximumSize(100, 100)
         self.listwidget.clicked.connect(self.clicked)
-        layout.addWidget(self.listwidget)
+        layout.addWidget(self.Qlistexcel)
 
     def clicked(self, qmodelindex):
         item = self.listwidget.currentItem()
         print(item.text())
+
+    def aggiorna(self):
+        
+        wd=os.getcwd()
+        os.chdir(wd+"/Session Excel")
+        listexcel=glob.glob('*.xlsx')
+        print(listexcel)
+        for x in range(len(listexcel)):
+            
+            self.Qlistexcel.insertItem(x,listexcel[x])
+
+        os.chdir(wd)
+
+        
+
+
 
 class SaveDialog(QDialog):
     def __init__(self,text):
@@ -331,9 +351,11 @@ class MainW(QMainWindow):
         self.Dati.signals.conn_status.connect(self.CheckStatusConnection)
         
             
-        
+        #listwidget
+        self.lista.aggiorna()    
 
         ######DEFINE GUI LAYOUT######
+    
         self.initGUI()
 
     
@@ -437,9 +459,9 @@ class MainW(QMainWindow):
         print(str(stringa))
     
     def SignalDati(self,x,y,z):
-        self.X=x
-        self.Y=y
-        self.Z=z
+        self.X=butter_lowpass_filter(x,5,50,3)
+        self.Y=butter_lowpass_filter(y,5,50,3)
+        self.Z=butter_lowpass_filter(z,5,50,3)
         
         
         
@@ -471,20 +493,21 @@ class MainW(QMainWindow):
 
         self.graphWidget.clear()
         
-        self.graphWidget.plot(l,filtered)
-        steps=self.ThresholdCount(filtered,l)
+        self.graphWidget.plot(l,acc)
+        steps=self.ThresholdCount(acc,l)
         self.passi=steps
         self.label_steps.setText(steps)
 
 
     def ThresholdCount(self,a,l):
-        thr = 280 #soglia settata basandomi sul grafico. i picchi inizio passo e fine passo raggiungono 8g.
+        thr = 270 #soglia settata basandomi sul grafico. i picchi inizio passo e fine passo raggiungono 8g.
         count = 0
         for i in l:
             if not a[i-1]>=thr:
                 if a[i] >= thr:
+                    print(a[i])
                     count += 1
-        steps = str(int(count /8))
+        steps = str(int(count))
         return steps
     
     #SHOW DATAS
@@ -515,6 +538,7 @@ class MainW(QMainWindow):
         self.provatimer,
         self.passi)
         '''
+        self.lista.aggiorna()  
 
     def NewSessionStart(self):
         self.DataSession.Reset()
@@ -589,6 +613,7 @@ class MainW(QMainWindow):
         df.to_excel(self.date+"_Session_{}.xlsx".format(self.n_ex),)
         self.n_ex+=1
         os.chdir(wd)
+
 
 
     #function to create structure data(maybe useless)#
