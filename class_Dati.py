@@ -45,6 +45,7 @@ class DatiSignals(QObject):
     dati=pyqtSignal(list,list,list)
     service_string=pyqtSignal(str)
     conn_status=pyqtSignal(str)
+    dialog_string=pyqtSignal(str)
 
 
 
@@ -71,14 +72,27 @@ class DatiSerial(QRunnable):
 
     def Abort(self):
         self.is_killed=True
-        self.serialPort.write('b'.encode('utf-8'))
+        try:
+            self.serialPort.write('b'.encode('utf-8'))
+        except serial.PortNotOpenError:
+            self.signals.dialog_string.emit("no save")
+            self.signals.service_string.emit("no save")
+            self.Reset()
+
+            
         self.serialPort.close()
         self.FlagConnection=False
         #self.signals.bool.emit(True)
         time.sleep(0.01)
        
 
-     
+    def Reset(self):
+        self.serialPort = serial.Serial(port = self.PortName, baudrate=115200,bytesize=8, timeout=None, stopbits=serial.STOPBITS_ONE)
+        self.serialPort.write('b'.encode('utf-8'))
+        self.serialPort.close()
+        print("Reset")
+        
+
     
         
 
