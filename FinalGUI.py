@@ -24,6 +24,7 @@ import numpy as np
 import sys
 import ctypes
 
+from PyQt5.QtGui import QPalette, QColor
 ####graph###
 from pyqtgraph import PlotWidget, plot
 import pyqtgraph as pg
@@ -178,12 +179,13 @@ class List_Acquisitions(QWidget):
         print(item.text())
 
     def aggiorna(self):
-        
+        self.Qlistexcel.clear()
         wd=os.getcwd()
         os.chdir(wd+"/Session Excel")
         listexcel=glob.glob('*.xlsx')
         print(listexcel)
         for x in range(len(listexcel)):
+            
             
             self.Qlistexcel.insertItem(x,listexcel[x])
 
@@ -265,7 +267,8 @@ class MainW(QMainWindow):
 
         #variable for data analysis
         self.DataSession=DataStructure()
-        
+        #variable for dialog save
+        self.ShowDialog=True
         
         
         
@@ -346,21 +349,52 @@ class MainW(QMainWindow):
         self.NewSession.pressed.connect(self.NewSessionStart)
         
         #define signals datastream
+        
         self.Dati.signals.service_string.connect(self.SignalThreadStr)
         self.Dati.signals.dati.connect(self.SignalDati)
         self.Dati.signals.conn_status.connect(self.CheckStatusConnection)
+        self.Dati.signals.dialog_string.connect(self.CheckDialogCondition)
+        
         
             
         #listwidget
-        self.lista.aggiorna()    
+        try:
+            self.lista.aggiorna()    
+        except FileNotFoundError:
+            pass 
 
         ######DEFINE GUI LAYOUT######
     
         self.initGUI()
 
+        ####palette
+        self.qp = QPalette()
+        self.qp.setColor(QPalette.Window, QColor(141, 201, 247)) #azzurro 172, 216, 227 - 141, 201, 247
+        self.qp.setColor(QPalette.WindowText, QColor(2, 43, 125)) #scritte blu 2, 43, 125
+        self.qp.setColor(QPalette.Base, QColor(205, 229, 247)) #sfondo secondo tab 205, 229, 247
+        # qp.setColor(QPalette.AlternateBase, QColor(255, 0, 0))
+        # qp.setColor(QPalette.ToolTipBase, Qt.red)
+        # qp.setColor(QPalette.ToolTipText, Qt.red)
+        self.qp.setColor(QPalette.Text, QColor(2, 43, 125)) # scritte tab
+        self.qp.setColor(QPalette.Button, QColor(169, 185, 196)) #bottoni grigi
+        self.qp.setColor(QPalette.ButtonText, QColor(2, 43, 125))
+        # qp.setColor(QPalette.BrightText, Qt.red)
+        # qp.setColor(QPalette.Link, QColor(42, 130, 218))
+        # qp.setColor(QPalette.Highlight, QColor(42, 130, 218))
+        # qp.setColor(QPalette.HighlightedText, Qt.black)
+
+        app.setPalette(self.qp)
+
     
         
-    
+    def CheckDialogCondition(self,str):
+        print(str+"  fun")
+        if "no save" in str:
+            
+            self.ShowDialog=False
+            print(self.ShowDialog)
+
+
     def StartAcquisition(self):
             self.ResetXYZ()
 
@@ -388,11 +422,15 @@ class MainW(QMainWindow):
         print("Reset Data")
     
     def AbortAcquisition(self):
+        self.Dati.signals.dialog_string.connect(self.CheckDialogCondition)
         
         self.Dati.Abort()
         
         self.resetTimer()
-        self.messageSave()
+        if self.ShowDialog:
+            self.messageSave()
+        if not self.ShowDialog:
+            self.ShowDialog=True
         #self.DataStrc=DataStructure(self.X,self.Y,self.Z,self.totalsignal,self.provatimer,self.passi)
         
        
@@ -459,9 +497,9 @@ class MainW(QMainWindow):
         print(str(stringa))
     
     def SignalDati(self,x,y,z):
-        self.X=butter_lowpass_filter(x,5,50,3)
-        self.Y=butter_lowpass_filter(y,5,50,3)
-        self.Z=butter_lowpass_filter(z,5,50,3)
+        self.X=butter_lowpass_filter(x,2,50,3)
+        self.Y=butter_lowpass_filter(y,2,50,3)
+        self.Z=butter_lowpass_filter(z,2,50,3)
         
         
         
@@ -484,7 +522,7 @@ class MainW(QMainWindow):
         ay_sq = np.square(Y)
         az_sq = np.square(Z)
         acc = np.sqrt(ax_sq + ay_sq + az_sq)
-        filtered=butter_lowpass_filter(acc,4,50,3)
+        filtered=butter_lowpass_filter(acc,2,50,3)
         self.totalsignal=acc
 
         l=len(acc)
@@ -495,19 +533,19 @@ class MainW(QMainWindow):
         
         self.graphWidget.plot(l,acc)
         steps=self.ThresholdCount(acc,l)
-        self.passi=steps
-        self.label_steps.setText(steps)
+        self.passi=steps-2
+        self.label_steps.setText(str(self.passi))
 
 
     def ThresholdCount(self,a,l):
-        thr = 270 #soglia settata basandomi sul grafico. i picchi inizio passo e fine passo raggiungono 8g.
+        thr = 260 #soglia settata basandomi sul grafico. i picchi inizio passo e fine passo raggiungono 8g.
         count = 0
         for i in l:
             if not a[i-1]>=thr:
                 if a[i] >= thr:
                     print(a[i])
                     count += 1
-        steps = str(int(count))
+        steps = int(count)
         return steps
     
     #SHOW DATAS
@@ -613,7 +651,9 @@ class MainW(QMainWindow):
         df.to_excel(self.date+"_Session_{}.xlsx".format(self.n_ex),)
         self.n_ex+=1
         os.chdir(wd)
-
+        
+        ##################LUCA CODE
+        #str(self.n_ex).zfill(2)
 
 
     #function to create structure data(maybe useless)#
