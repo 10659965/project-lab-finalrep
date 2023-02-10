@@ -26,6 +26,10 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     
 )
+from PyQt5.QtGui import(
+    QFont,
+    
+)
 
 STATO=0
 
@@ -100,12 +104,14 @@ class BT_search(QWidget):
 
                         if self.ch_compare in str(self.chreceived):
                             print("connection estabilished")
+                            self.s.write('a'.encode('utf-8'))
                             self.stato='CONNECTED'
                             self.ChangeStatus(self.stato+':'+xc)
+                            self.s.close()
                             self.connectionFlag=1
                             self.butt_bt.setDisabled(True)
                             self.portName=xc
-                            self.s.close()
+                            
                             self.signalport.portname.emit(xc)
 
                             
@@ -141,22 +147,29 @@ class BT_search(QWidget):
     
     def displayerrorport(self,xc):
         
-        self.ErrorCOM=ErrorW(300,200,'ERROR PORT CONNECTION: '+xc,'ERROR')
+        self.ErrorCOM=ErrorW(300,200,'ERROR PORT CONNECTION: '+xc,'ERROR',10,False)
         self.ErrorCOM.exec_()
 
 class ErrorW(QDialog):
-    def __init__(self,width,height,errorText,windowTitle):
+    def __init__(self,width,height,errorText,windowTitle,font_size,bold=bool):
         super(QDialog,self).__init__()
         self.width=width
         self.height=height
         self.setMinimumSize(width, height)
         self.err_text=str(errorText)
         
-        
+        font=QFont('Arial',font_size)
+        if bold:
+            font=QFont('Arial',font_size,QFont.Bold)
+        if not bold:
+            font=QFont('Arial',font_size)
+
         
         
         self.win_text=str(windowTitle)
         self.Text=QLabel(self.err_text.upper())
+        self.Text.setFont(font)
+
         
         
         self.setWindowTitle(self.win_text)
@@ -167,6 +180,8 @@ class ErrorW(QDialog):
         vlay=QVBoxLayout()
         vlay.addLayout(hlay)
         self.setLayout(vlay)
+    
+    
 
 #############
 #  RUN APP  #

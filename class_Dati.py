@@ -25,6 +25,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     
 )
+from BTPY_class import ErrorW
 class WorkerKilled(Exception):
     pass
 
@@ -73,7 +74,7 @@ class DatiSerial(QRunnable):
     def Abort(self):
         self.is_killed=True
         try:
-            self.serialPort.write('b'.encode('utf-8'))
+            self.serialPort.write('a'.encode('utf-8'))
         except serial.PortNotOpenError:
             self.signals.dialog_string.emit("no save")
             self.signals.service_string.emit("no save")
@@ -88,10 +89,26 @@ class DatiSerial(QRunnable):
 
     def Reset(self):
         self.serialPort = serial.Serial(port = self.PortName, baudrate=115200,bytesize=8, timeout=None, stopbits=serial.STOPBITS_ONE)
-        self.serialPort.write('b'.encode('utf-8'))
+        self.serialPort.write('a'.encode('utf-8'))
         self.serialPort.close()
         print("Reset")
+
+    def AppClose(self):
         
+        try:
+            self.serialPort = serial.Serial(port = self.PortName, baudrate=115200,bytesize=8, timeout=None, stopbits=serial.STOPBITS_ONE)
+            self.serialPort.write('c'.encode('utf-8'))
+            self.serialPort.close()
+        except serial.PortNotOpenError:
+            #self.ErrorCOM=ErrorW(100,200,'UNABLE TO CONNECT DEVICE ','ERROR',10,True)
+            #self.ErrorCOM.exec_()
+            print("device OFF")
+            pass
+        except serial.SerialException:
+            #self.ErrorCOM=ErrorW(100,200,'DEVICE OFF','ERROR',10,True)
+            #self.ErrorCOM.exec_()
+            print("device OFF")
+            pass    
 
     
         
@@ -172,7 +189,9 @@ class DatiSerial(QRunnable):
                         #time.sleep(0.05)
                         self.run()
                 except serial.PortNotOpenError:
-                    self.serialPort.close()
+                    self.Reset()
+                    self.signals.conn_status.emit("Connection lost")
+                    self.signals.dialog_string.emit("no save")
 
                     
                         
@@ -188,11 +207,25 @@ class DatiSerial(QRunnable):
 
 
     def checkStringInit(self):
-        stringInit=str(self.serialPort.read(7))
+        #self.serialPort = serial.Serial(port = self.PortName, baudrate=115200,bytesize=8, timeout=None, stopbits=serial.STOPBITS_ONE)
+        try:
+            stringInit=str(self.serialPort.readline())
+        except serial.PortNotOpenError:
+            self.serialPort = serial.Serial(port = self.PortName, baudrate=115200,bytesize=8, timeout=None, stopbits=serial.STOPBITS_ONE)
+            stringInit=str(self.serialPort.readline())
+            
+
+        print(stringInit)
         self.signals.service_string.emit(stringInit)
         if self.chcompare in stringInit:
-            self.serialPort.write('a'.encode('utf-8'))
+            
+            self.serialPort.write('b'.encode('utf-8'))
+            
             self.signals.service_string.emit("WROTE") 
+
+   
+
+
              
                 
     

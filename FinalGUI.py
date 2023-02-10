@@ -2,8 +2,11 @@
 import os 
 import glob
 
+from PD_multiclassification import dtree_model
+
 #libraries to filter data
 from scipy.signal import butter,filtfilt
+from scipy import stats as st
 
 def butter_lowpass_filter(data, cutoff, fs, order):
     print("Cutoff freq " + str(cutoff))
@@ -38,7 +41,9 @@ from PyQt5.QtCore import (
     QRunnable, 
     pyqtSignal, 
     pyqtSlot,
-    QTimer
+    QTimer,
+    
+    
 )
 
 from PyQt5.QtWidgets import (
@@ -55,7 +60,15 @@ from PyQt5.QtWidgets import (
     QGridLayout,
     QTabWidget,
     QListWidget,
-    QStyle
+    QStyle,
+    QGraphicsSimpleTextItem,
+    
+    
+    
+    )
+
+from PyQt5.QtGui import(
+    QFont,
     
 )
 
@@ -66,40 +79,16 @@ from class_Dati import (
     convert
 )
 from BTPY_class import(
-    BT_search
+    BT_search,
+    ErrorW
 )
 
-'''
-ax_sq = np.square(ax)
-ay_sq = np.square(ay)
-az_sq = np.square(az)
 
-a = np.sqrt(ax_sq + ay_sq + az_sq)
-l = len(a)
-print("Acceleration array:", a)
-print("The length of the array is:", l)
-
-thr = 7 #soglia settata basandomi sul grafico. i picchi inizio passo e fine passo raggiungono 8g.
-count = 0
-for i in range(0, l):
-    if a[i] >= thr:
-        count += 1
-steps = str(count /2)
-'''
-#print("number of peaks:", count)
-#print("number of steps:", steps)
 
 #classe Datastructure
 class DataStructure:
     def __init__(self):
-        '''
-        self.X=X
-        self.Y=Y
-        self.Z=Z
-        self.acc=acc
-        self.temp_time=time
-        self.temp_steps=passi
-        '''
+        
         self.minX=[]
         self.minY=[]
         self.minZ=[]
@@ -114,8 +103,9 @@ class DataStructure:
         self.varAcc=[]
         self.timesave=[]
         self.stepsave=[]
+        self.results=[]
     
-    def CreateData(self,X,Y,Z,acc,time,passi):
+    def CreateData(self,X,Y,Z,acc,time,passi,results):
         self.minX.append(min(X))
         self.minY.append(min(Y))
         self.minZ.append(min(Z))
@@ -130,6 +120,7 @@ class DataStructure:
         self.varAcc.append(np.var(acc))
         self.timesave.append(time)
         self.stepsave.append(passi)
+        self.results.append(results)
 
     def Reset(self):
         self.minX=[]
@@ -146,10 +137,12 @@ class DataStructure:
         self.varAcc=[]
         self.timesave=[]
         self.stepsave=[]
+        self.results=[]
         print(self.minX)
 
 class Signals(QObject):
-    signal=pyqtSignal(int)
+    signal_int=pyqtSignal(int)
+    string=pyqtSignal(str)
 
 
 #classe lista
@@ -157,25 +150,21 @@ class List_Acquisitions(QWidget):
     def __init__(self):
         QWidget.__init__(self)
         layout = QGridLayout()
+        self.stringalista=Signals()
+
 
         self.setLayout(layout)
         self.listwidget = QListWidget()
         self.Qlistexcel=QListWidget()
         
-        '''
-        self.listwidget.insertItem(0, "Excel1_example")
-        self.listwidget.insertItem(1, "Excel2_example")
-        self.listwidget.insertItem(2, "Excel3_example")
-        self.listwidget.insertItem(3, "Excel4_example")
-        self.listwidget.insertItem(4, "Excel5_example")
-        '''
-        # self.listwidget.setMaximumSize(50, 50)
-        # self.listwidget.setMaximumSize(100, 100)
+       
         self.listwidget.clicked.connect(self.clicked)
+        self.Qlistexcel.clicked.connect(self.clicked)
         layout.addWidget(self.Qlistexcel)
 
     def clicked(self, qmodelindex):
-        item = self.listwidget.currentItem()
+        item = self.Qlistexcel.currentItem()
+        self.stringalista.string.emit(str(item.text()))
         print(item.text())
 
     def aggiorna(self):
@@ -196,10 +185,25 @@ class List_Acquisitions(QWidget):
 
 
 class SaveDialog(QDialog):
-    def __init__(self,text):
+    def __init__(self,text,prediction):
         super(QDialog,self).__init__()
         self.maintext=str(text)
+        maintextfont=QFont('Arial',10)
+        
+        predictiontext=prediction
+        #self.reuslt=str(result)
+        if prediction==0:
+            resulttext="Normal gait detected"
+        if prediction==1:
+            resulttext="Anomalous gait detected.Further examinations suggested"
+        if prediction==2:
+            resulttext="Serious anomalies on gait detected. Subject may require assistances"
         self.MainTextlabel=QLabel(self.maintext)
+        self.MainTextlabel.setFont(maintextfont)
+        
+        self.result_label=QLabel("Result acquisition: "+resulttext)
+        fontresult=QFont('Arial',12,QFont.Bold)
+        self.result_label.setFont(fontresult)
         self.si=QPushButton("Yes")
         self.no=QPushButton("No")
         self.flag=False
@@ -214,6 +218,7 @@ class SaveDialog(QDialog):
 
 
         vlayout=QVBoxLayout()
+        vlayout.addWidget(self.result_label)
         vlayout.addWidget(self.MainTextlabel)
         vlayout.addLayout(hlayout)
 
@@ -224,20 +229,24 @@ class SaveDialog(QDialog):
 
     def PressedSi(self):
         self.flag=True
-        print(self.flag)
-        self.segnale.signal.emit(0)
+        fontresult=QFont('Arial',12,QFont.Bold)
+        
+        self.segnale.signal_int.emit(0)
         self.si.setDisabled(True)
         self.no.setDisabled(True)
         self.MainTextlabel.setText("Acquisition saved, close this window")
+        self.MainTextlabel.setFont(fontresult)
             
 
     def PressedNo(self):
         self.flag=False
-        print(self.flag)
-        self.segnale.signal.emit(0)
+        fontresult=QFont('Arial',12,QFont.Bold)
+        
+        self.segnale.signal_int.emit(0)
         self.si.setDisabled(True)
         self.no.setDisabled(True)
         self.MainTextlabel.setText("Acquisition not saved, close this window")
+        self.MainTextlabel.setFont(fontresult)
         
 
 
@@ -258,6 +267,11 @@ class MainW(QMainWindow):
         self.passi=None
         self.CreateDataFlag=None
 
+        self.resultAcuisition=None
+        #dataframe for prediction
+        self.dataframe_pr=None
+        #save prediction abort acquisition
+        self.prediction=None
         #acquire date
         today_date=dt.date.today()
         
@@ -283,12 +297,15 @@ class MainW(QMainWindow):
         #Graph: Add axis labels
         styles = {'color': 'k', 'font-size': '15px'}
         self.graphWidget.setLabel('left', 'Acceleration [g]', **styles)
-        self.graphWidget.setLabel('bottom', 'Time [sec]', **styles)
+        self.graphWidget.setLabel('bottom', 'Time [msec]', **styles)
         self.graphWidget.addLegend()
+        self.graphWidget.setXRange(-0.5,10)
+        self.graphWidget.setYRange(-20,20)
 
         ####steps labels
         self.label_steps = QLabel()
         self.label_steps_text = QLabel('The number of Steps is:', self)
+        
         self.label_steps.resize(170, 40)
         self.label_steps_text.resize(50, 40)
         
@@ -296,10 +313,14 @@ class MainW(QMainWindow):
 
         ####timer####
         self.timerstring=QLabel("Time: ")
+        #size 
         self.timerstring.resize(50, 40)
+        
+        
         self.timerstring.move(560,25)
         self.timelabel=QLabel()
         self.timelabel.resize(50, 40)
+        
         self.timelabel.move(560, 25)
 
         self.timer =QTimer()
@@ -355,12 +376,17 @@ class MainW(QMainWindow):
         self.Dati.signals.conn_status.connect(self.CheckStatusConnection)
         self.Dati.signals.dialog_string.connect(self.CheckDialogCondition)
         
+        ##result list show
+        
+        #todefine
+        self.lista.stringalista.string.connect(self.resultshow)
         
             
         #listwidget
         try:
             self.lista.aggiorna()    
         except FileNotFoundError:
+            print('file not found')
             pass 
 
         ######DEFINE GUI LAYOUT######
@@ -372,16 +398,11 @@ class MainW(QMainWindow):
         self.qp.setColor(QPalette.Window, QColor(141, 201, 247)) #azzurro 172, 216, 227 - 141, 201, 247
         self.qp.setColor(QPalette.WindowText, QColor(2, 43, 125)) #scritte blu 2, 43, 125
         self.qp.setColor(QPalette.Base, QColor(205, 229, 247)) #sfondo secondo tab 205, 229, 247
-        # qp.setColor(QPalette.AlternateBase, QColor(255, 0, 0))
-        # qp.setColor(QPalette.ToolTipBase, Qt.red)
-        # qp.setColor(QPalette.ToolTipText, Qt.red)
+        
         self.qp.setColor(QPalette.Text, QColor(2, 43, 125)) # scritte tab
         self.qp.setColor(QPalette.Button, QColor(169, 185, 196)) #bottoni grigi
         self.qp.setColor(QPalette.ButtonText, QColor(2, 43, 125))
-        # qp.setColor(QPalette.BrightText, Qt.red)
-        # qp.setColor(QPalette.Link, QColor(42, 130, 218))
-        # qp.setColor(QPalette.Highlight, QColor(42, 130, 218))
-        # qp.setColor(QPalette.HighlightedText, Qt.black)
+        
 
         app.setPalette(self.qp)
 
@@ -410,7 +431,7 @@ class MainW(QMainWindow):
             self.ThreadDati.start(self.Dati)
             
             self.Dati.is_killed=False
-            print("iskilled:"+str(self.Dati.is_killed))
+            #print("iskilled:"+str(self.Dati.is_killed))
             self.startAcq.setDisabled(True)
             self.label_steps.setText(str('0'))
             
@@ -423,12 +444,29 @@ class MainW(QMainWindow):
     
     def AbortAcquisition(self):
         self.Dati.signals.dialog_string.connect(self.CheckDialogCondition)
+        self.resetTimer()
         
         self.Dati.Abort()
         
-        self.resetTimer()
+        
+        
+        ########### data analysis
+        
+        
+        
         if self.ShowDialog:
+            self.CreateDataFrame(self.X,self.Y,self.Z,self.totalsignal,self.provatimer,self.passi)
+             
+            print("provatimer:"+str(self.provatimer))
+            prediction = dtree_model.predict(self.dataframe_pr)
+            self.prediction=int(prediction[1])
+
             self.messageSave()
+
+            '''
+            self.messageSave(self.resultAcquisition)
+            #must be inserted the resul into the save dialog
+            '''
         if not self.ShowDialog:
             self.ShowDialog=True
         #self.DataStrc=DataStructure(self.X,self.Y,self.Z,self.totalsignal,self.provatimer,self.passi)
@@ -450,41 +488,24 @@ class MainW(QMainWindow):
         #self.FlagFirstAbort=1
     
     def messageSave(self):
-        '''MessgeBox(didn't work)
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Information)
-        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        
-        msg.setWindowTitle("ACquisition Save")
-        
-        msg.setText("Do you want to save the acquisition data?")
-        
-        
-        msg.buttonClicked.connect(self.AppendVectorAcquisition)
-        
-        msg.exec_()
-        #print(self.CreateDataFlag)
-        '''
-        self.dialogsave=SaveDialog("Do you want to save this acquisition?")
-        self.dialogsave.segnale.signal.connect(self.AppendVectorAcquisition)
+      
+        self.dialogsave=SaveDialog("Do you want to save this acquisition?",self.prediction)
+        self.dialogsave.segnale.signal_int.connect(self.AppendVectorAcquisition)
         self.dialogsave.exec_()
         
     
 
 
     def AppendVectorAcquisition(self):
-        print("signal save dialog")
+        
         #print(self.CreateDataFlag)
 
         if self.dialogsave.flag:
-            self.DataSession.CreateData(self.X,self.Y,self.Z,self.totalsignal,self.provatimer,self.passi)
+            self.DataSession.CreateData(self.X,self.Y,self.Z,self.totalsignal,self.provatimer,self.passi,
+            self.prediction
+            )
             #print to check
-            print(self.DataSession.minX)
-            print(self.DataSession.minY)
-            print(self.DataSession.minZ)
-            print(self.DataSession.maxX)
-            print(self.DataSession.maxY)
-            print(self.DataSession.maxZ)
+            print("Acquisition saved")
         
         
 
@@ -492,7 +513,19 @@ class MainW(QMainWindow):
     def CheckStatusConnection(self,stringa):
         if "Serial Exception" in stringa:
             self.startAcq.setDisabled(False)
+        if "Connection lost" in stringa:
+            self.LostConnection()
+    
+    def LostConnection(self):
+        self.Dati.signals.dialog_string.connect(self.CheckDialogCondition)
+        self.resetTimer()
+        self.Dati.Abort()
+        self.startAcq.setDisabled(False) 
+        print("iskilled:"+str(self.Dati.is_killed)+"connection lost")
+        
 
+        pass
+        
     def SignalThreadStr(self,stringa):
         print(str(stringa))
     
@@ -529,12 +562,17 @@ class MainW(QMainWindow):
         length=l-1
         l = np.arange(0, length+1, 1)
 
+        self.graphWidget.enableAutoRange()
+
         self.graphWidget.clear()
         
         self.graphWidget.plot(l,acc)
         steps=self.ThresholdCount(acc,l)
         self.passi=steps-2
-        self.label_steps.setText(str(self.passi))
+        if self.passi<0:
+            self.label_steps.setText(str(0))
+        if self.passi>0:
+            self.label_steps.setText(str(self.passi))
 
 
     def ThresholdCount(self,a,l):
@@ -560,22 +598,7 @@ class MainW(QMainWindow):
         ####excel####
 
         self.ExcelSave(self.DataSession)
-        ''' pass inside the function self parameters
-        self.ExcelSave(self.minX,
-        self.minY,
-        self.minZ,
-        self.maxX,
-        self.maxY,
-        self.maxZ,
-        self.varX,
-        self.varY,
-        self.varZ,
-        self.minAcc,
-        self.maxAcc,
-        self.varAcc,
-        self.provatimer,
-        self.passi)
-        '''
+        
         self.lista.aggiorna()  
 
     def NewSessionStart(self):
@@ -587,20 +610,7 @@ class MainW(QMainWindow):
     #EXCEL FUNCTION 
     def ExcelSave(self,data):
         
-        #data dictionary for self parameter
-        '''
-        data={ 'minX':minX,
-            'minY':minY,
-            'minZ':minZ,
-            'maxX':maxX,
-            'maxY':maxY,
-            'maxZ':maxZ,
-            'minAcc':minAcc,
-            'maxAcc':maxAcc,
-            'varAcc':varAcc,
-            'tempo':tempo,
-            'passi':passi}
-        '''
+        
         #control path
         wd=os.getcwd()
         print(wd)
@@ -643,12 +653,14 @@ class MainW(QMainWindow):
             'maxAcc':data.maxAcc,
             'varAcc':data.varAcc,
             'tempo':data.timesave,
-            'passi':data.stepsave}
+            'passi':data.stepsave,
+            'risultati':data.results
+            }
         
 
         df=pd.DataFrame(data=data)
         
-        df.to_excel(self.date+"_Session_{}.xlsx".format(self.n_ex),)
+        df.to_excel(self.date+"_Session_{}.xlsx".format(str(self.n_ex).zfill(3)),)
         self.n_ex+=1
         os.chdir(wd)
         
@@ -656,20 +668,54 @@ class MainW(QMainWindow):
         #str(self.n_ex).zfill(2)
 
 
-    #function to create structure data(maybe useless)#
-    def CreateData(self,X,Y,Z,acc):
-        self.minX=min(X)
-        self.minY=min(Y)
-        self.minZ=min(Z)
-        self.maxX=max(X)
-        self.maxY=max(Y)
-        self.maxZ=max(Z)
-        self.varX=np.var(X)
-        self.varY=np.var(Y)
-        self.varZ=np.var(Z)
-        self.minAcc=min(acc)
-        self.maxAcc=max(acc)
-        self.varAcc=np.var(acc)
+    #function to create structure dataFrame for prediction#
+    def CreateDataFrame(self,X,Y,Z,acc,timer,passi):
+        minX=[0]
+        minY=[0]
+        minZ=[0]
+        maxX=[0]
+        maxY=[0]
+        maxZ=[0]
+        varX=[0]
+        varY=[0]
+        varZ=[0]
+        minAcc=[0]
+        maxAcc=[0]
+        varAcc=[0]
+        timesave=[0]
+        stepsave=[0]
+        #insert data
+        minX.append(min(X))
+        minY.append(min(Y))
+        minZ.append(min(Z))
+        maxX.append(max(X))
+        maxY.append(max(Y))
+        maxZ.append(max(Z))
+        varX.append(np.var(X))
+        varY.append(np.var(Y))
+        varZ.append(np.var(Z))
+        minAcc.append(min(acc))
+        maxAcc.append(max(acc))
+        varAcc.append(np.var(acc))
+        timesave.append(timer)
+        stepsave.append(passi)
+        data={ 'minX':minX,
+            'minY':minY,
+            'minZ':minZ,
+            'maxX':maxX,
+            'maxY':maxY,
+            'maxZ':maxZ,
+            'varX':varX,
+            'varY':varY,
+            'varZ':varZ,
+            'minAcc':minAcc,
+            'maxAcc':maxAcc,
+            'varAcc':varAcc,
+            'tempo':timesave,
+            'passi':stepsave,
+            }
+
+        self.dataframe_pr=pd.DataFrame(data=data)
 
 
 
@@ -713,12 +759,85 @@ class MainW(QMainWindow):
         self.start = False
         self.firststart=True
         #self.start_btn.setDisabled(False)
+    
+    ##showresult session function listclick
         
+    def resultshow(self,session):
+        sessione_click=str(session)
+        wd=os.getcwd()
+        os.chdir(wd+"/Session Excel")
+        listsession=glob.glob('*.xlsx')
+        if sessione_click in listsession:
+            
+            exc=pd.read_excel(sessione_click)
+            try:
+                results=exc.iloc[:,15]
+                results=list(results)
+                moderesult=st.mode(results,axis=None,keepdims=False)
+
+                label=QLabel(str(moderesult))
+
+                stringalabel=QLabel("Result: "+str(moderesult[0]))
+                font=QFont('Arial',50)
+                stringalabel.setFont(font)
+                
+            
+            except IndexError:
+                self.ErrorCOM=ErrorW(300,200,'Session selected does not have prediction result(check integrity file)','ERROR',10,False)
+                self.ErrorCOM.exec_()
+                moderesult="result not found"
+                stringalabel=QLabel("Result: Not Found")
+                font=QFont('Arial',50)
+                stringalabel.setFont(font)
+                os.chdir(wd)
+                
+
+            
+            #######
+            #adding bold text+other characteruistuic
+            #######
+            legend="Legend:\n0=Normal Gait\n1=Require further examinations\n2=Patient need assistance"
+
+            
+            
+            label_prova_pg=pg.TextItem(text=str(stringalabel.text()),color=(256, 256, 256),anchor=(0.5,0.5))
+            label_prova_pg.setFont(font)
+
+
+            fontlegend=QFont('Arial',10)
+            label_legend_pg=pg.TextItem(text=str(legend),color=(256, 256, 256),anchor=(0,1))
+            label_legend_pg.setPos(-0.5,-0.7)
+            label_legend_pg.setFont(fontlegend)
+            
+            
+            
+            
+            
+            self.graphWidget.clear()
+            self.graphWidget.setXRange(-1,1)
+            self.graphWidget.setYRange(-1,1)
+            self.graphWidget.hideAxis('left')
+            self.graphWidget.hideAxis('bottom')
+            self.graphWidget.setTitle("Session Result")
+
+            
+            self.graphWidget.addItem(label_prova_pg,ignoreBounds=True)
+            self.graphWidget.addItem(label_legend_pg,ignoreBounds=True)
+            
+            
+            os.chdir(wd)
+
+
+    
 
     def initGUI(self):
-
+        self.setWindowTitle("G.G.A.D.(Glass Gait Analysis Device)")
+        
         WindowWid=QWidget()
         mainlayout=QGridLayout()
+
+        
+        
 
         #layout for buttons
         AcqButtonlayH=QHBoxLayout()
@@ -728,15 +847,22 @@ class MainW(QMainWindow):
         AcqButtonlayV.addLayout(AcqButtonlayH)
         AcqButtonlayV.addWidget(self.ShowData)
         AcqButtonlayV.addWidget(self.NewSession)
+        
 
+        ##label fontsize
+        labelfont=QFont('Arial',9)
         #layoulabels steps
         layoutlabel=QHBoxLayout()
+        self.label_steps.setFont(labelfont)
         layoutlabel.addWidget(self.label_steps_text)
+        self.label_steps_text.setFont(labelfont)
         layoutlabel.addWidget(self.label_steps)
 
         #layoutlabels timer
         layoutlabel_timer=QHBoxLayout()
+        self.timerstring.setFont(labelfont)
         layoutlabel_timer.addWidget(self.timerstring)
+        self.timelabel.setFont(labelfont)
         layoutlabel_timer.addWidget(self.timelabel)
 
         #sx tab main window
@@ -760,7 +886,8 @@ class MainW(QMainWindow):
         tabsx=QTabWidget()
         tabsx.addTab(tabAcquisition,'Acquisition')
         tabsx.addTab(tablist,'Excel files')
-        tabsx.setMaximumWidth(400)
+        tabsx.tabBarClicked.connect(self.clearGraph)
+        #tabsx.setMaximumWidth(400)
         tabsx.resize(250,600)
         '''
         tabsx.setMaximumSize(250,600)
@@ -792,21 +919,32 @@ class MainW(QMainWindow):
         WindowWid.setLayout(mainlayout)
 
         
-        #Vecchia Gui layout
-        '''
-        #Vecchia Gui layout
-        hlay=QHBoxLayout()
-        hlay.addWidget(self.graphWidget)
-        hlay.addWidget(self.startAcq)
-        hlay.addWidget(self.stopAcq)
-        hlay.addWidget(self.searchWdiget)
-        vlay=QVBoxLayout()
-        vlay.addLayout(hlay)
-        vlay.addWidget(self.ShowData)
-        Wid.setLayout(vlay)
-        '''
+        
 
         self.setCentralWidget(WindowWid)
+
+    def clearGraph(self):
+        self.graphWidget.clear()
+        self.graphWidget.setXRange(-0.5,10)
+        self.graphWidget.setYRange(-20,20)
+        self.graphWidget.showAxis('left')
+        self.graphWidget.showAxis('bottom')
+        self.graphWidget.setTitle("Acceleration measurement")
+    
+    def closeEvent(self, event):
+        if event.spontaneous():
+            self.Dati=DatiSerial(self.portname,'Ready')
+            self.Dati.AppClose()
+            print("app closed")
+    
+    
+
+            
+
+        
+
+
+ 
 
 
 
